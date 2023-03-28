@@ -9,25 +9,27 @@ def compile(fileDir, filename , opt):
 	compile_gen = "clang -g -fno-omit-frame-pointer -fno-inline -ggdb " + opt + " -std=c11 -Wall -fno-stack-protector -no-pie -o " + fileDir[:-2] + ".d/" + filename + opt + " " + fileDir
 	compile_proc = subprocess.run(compile_gen.split(" "), stderr=subprocess.PIPE)
 
-def run_bench(fileDir, filename, opt, switch_num, k, funcName):
+def run_map(fileDir, filename, opt):
 	run_map = ['cfggrind_asmmap', fileDir[:-2] + ".d/" + filename + opt]
 	with open(fileDir[:-2] + ".d/" + filename + opt + '.map', "w") as outfile:
 		subprocess.run(run_map, stdout=outfile)
+
+def run_bench(fileDir, filename, opt, switch_num, k, funcName):
 	
 	run_valgrind = 'valgrind --tool=cfggrind --cfg-outfile=' + fileDir[:-2] + ".d/" + filename + '_' + k + '_' + opt[1:] + '.cfg --instrs-map=' + fileDir[:-2] + ".d/" + filename + opt + '.map ' + fileDir[:-2] + ".d/" + filename + opt + ' ' + switch_num
 	subprocess.run(run_valgrind.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-	run_cfggrind = ['cfggrind_info', '-f' + funcName, '-s', 'functions', '-m', 'json', fileDir[:-2] + ".d/" + filename + '_' + k + '_' + opt[1:] + '.cfg']
+	run_cfggrind = ['cfggrind_info', '-f', filename + opt + "::" + funcName.strip() , '-s', 'functions', '-m', 'json', fileDir[:-2] + ".d/" + filename + '_' + k + '_' + opt[1:] + '.cfg']
 	print(run_cfggrind)
 	with open(fileDir[:-2] + ".d/" + filename + '_' + k + '_' + opt  + '.info', "w") as outfile:
 		subprocess.run(run_cfggrind, stdout=outfile)
 
 
 def main():
-	all_bench_dir = './ksmall_jotai'
+	all_bench_dir = './small_jotai'
 
 	time_dict = {}
-	optLevelList = ['-O0', '-O1', '-O2', '-O3', '-Oz', '-Os']
+	optLevelList = ['-O0', '-O1', '-O2', '-O3', '-Oz', '-Os', 'Ofast']
 	ketList = ['int-bounds','big-arr','big-arr-10x','linked','dlinked','bintree']
 	for opt in optLevelList:
 		time_dict[opt] = []
@@ -56,9 +58,10 @@ def main():
 
 		for opt in optLevelList:
 			compile(fileDir, benchmark_name, opt)
-			run_result = []
+			run_map(fileDir, benchmark_name, opt)
 			for idx in range(len(constraintList)): 
-				run_bench(fileDir, benchmark_name, opt, constraintList[idx], ketList[idx], func_name)
+				if constraintList[idx]:
+					run_bench(fileDir, benchmark_name, opt, constraintList[idx], ketList[idx], func_name)
 
 
 
